@@ -1,44 +1,34 @@
-from flask import Flask, request, jsonify
-import time
-import uuid
+from flask import Flask, jsonify
+import random
+import string
 
 app = Flask(__name__)
 
-# store keys in memory (for now)
-keys = {}
+# store keys (temporary memory)
+valid_keys = []
 
-# ---------------- GENERATE KEY ----------------
-@app.route("/generate", methods=["GET"])
+# homepage (so you don't get 404)
+@app.route("/")
+def home():
+    return "Server is running"
+
+# generate a key
+@app.route("/generate")
 def generate():
-    key = str(uuid.uuid4())[:8].upper()
-    
-    keys[key] = {
-        "used": False,
-        "expires": time.time() + 3600  # 1 hour expiry
-    }
-
+    key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
+    valid_keys.append(key)
     return jsonify({"key": key})
 
-# ---------------- VALIDATE KEY ----------------
-@app.route("/validate", methods=["POST"])
-def validate():
-    data = request.json
-    key = data.get("key")
-
-    if key not in keys:
+# verify a key
+@app.route("/verify/<key>")
+def verify(key):
+    if key in valid_keys:
+        return jsonify({"status": "valid"})
+    else:
         return jsonify({"status": "invalid"})
 
-    info = keys[key]
-
-    if info["expires"] < time.time():
-        return jsonify({"status": "expired"})
-
-    if info["used"]:
-        return jsonify({"status": "used"})
-
-    info["used"] = True
-    return jsonify({"status": "valid"})
-
-# ---------------- RUN ----------------
+# run the server (Render needs this)
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
